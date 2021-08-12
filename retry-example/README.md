@@ -5,7 +5,7 @@ This project briefly shows how you can make use of Spring Boot, Retrofit & Resil
 ## Architecture
 The project architecture is quite simple. Just spring boot applications **gaming-titles** & **games-ranking** that communicate each other via HTTP with help of **Retrofit & OkHttp** technologies.
 
-IMAGE HERE
+![enter image description here](https://github.com/DRodrigoBL/spring-retrofit-resilience4j/blob/master/retry-example/doc/gaming-architecture.png?raw=true)
 
 ## games-ranking
 This service will only expose one REST API that responds with the corresponding stars ranking for a given **gameTitleId**
@@ -150,7 +150,7 @@ curl --location --request GET 'http://localhost:9090/api/games/0'
 ```
 Since it is using the ***exponential back off*** with base of 4seconds and a multiplier param of 2.0 we can expect the following results from the **games-ranking** application logs
 
-IMAGE HERE
+![enter image description here](https://raw.githubusercontent.com/DRodrigoBL/spring-retrofit-resilience4j/master/retry-example/doc/retry-log-calls.png)
 
 Service response with total response time of ***12.3 seconds***
 ```json
