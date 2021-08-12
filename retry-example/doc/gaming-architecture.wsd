@@ -1,0 +1,19 @@
+@startuml
+skinparam rectangle {
+    roundCorner<<Architecture>> 25
+}
+
+rectangle "Gaming Architecture" <<Architecture>> {
+
+    node AWS {
+
+        node ECS {
+            component gaming_titles
+            component games_ranking
+        }
+
+        gaming_titles #-(0)-# games_ranking: ""  REST API""
+
+    }
+}
+@enduml
