@@ -46,6 +46,10 @@ class GamesRankingController(private val gameRankingService: GameRankingService)
             logger.info("Sleeping for $sleepMillis ms")
             Thread.sleep(sleepMillis)
         }
+        if (gameTitleId == 4L) {
+            logger.info("Response as ${HttpStatus.BAD_REQUEST} for gameTitleId=$gameTitleId")
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build()
+        }
 
         val result = gameRankingService.getGameRanking(gameTitleId)
         return if (result.isPresent) {

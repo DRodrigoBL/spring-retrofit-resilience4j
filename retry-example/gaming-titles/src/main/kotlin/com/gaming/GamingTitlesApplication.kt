@@ -7,19 +7,21 @@ import io.reactivex.Maybe
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.retry.support.RetryTemplate
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.client.RestTemplate
+import org.springframework.web.util.UriComponentsBuilder
 import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Path
 import java.util.Optional
-import javax.validation.Validation
-import javax.validation.constraints.NotNull
 
 @SpringBootApplication
 class GamingTitlesApplication
@@ -44,6 +46,17 @@ class GamesRestController(private val service: GameService) {
         }
     }
 
+    @GetMapping("/spring-retry/{gameTitleId}")
+    fun getGameInformationSpringRetry(@PathVariable("gameTitleId") gameTitleId: Long): ResponseEntity<GameInformationResponse> {
+
+        val response = service.getGameInformationSpringRetry(gameTitleId)
+        return if (response.isPresent) {
+            ResponseEntity.ok(response.get())
+        } else {
+            ResponseEntity.notFound().build()
+        }
+    }
+
     @GetMapping("/async/{gameTitleId}")
     fun getGameInformationAsync(@PathVariable("gameTitleId") gameTitleId: Long): ResponseEntity<GameInformationResponse> {
         val response = service.getGameInformationAsync(gameTitleId)
@@ -57,25 +70,36 @@ class GamesRestController(private val service: GameService) {
 }
 
 @Service
-class GameService(private val gameRankingApi: GameRankingApi) {
+class GameService(private val gameRankingApi: GameRankingApi,
+                  private val restTemplate: RestTemplate,
+                  private val retryTemplate: RetryTemplate) {
 
     private val logger by lazy { LoggerFactory.getLogger(GameService::class.java.simpleName) }
 
     private val games = listOf(
-        GameInformation(0L, "TOO_MANY_REQUESTS_FLOW", ""),
-        GameInformation(1L, "INTERNAL_SERVER_ERROR_FLOW", ""),
-        GameInformation(2L, "BAD_GATEWAY_FLOW", ""),
-        GameInformation(3L, "SOCKET_TIME_OUT_FLOW", ""),
-        GameInformation(100L, "GTA V", "Rockstar"),
-        GameInformation(200L, "Doom Eternal", "Bethesda"),
-        GameInformation(300L, "Battlefield 2042", "EA")
+            GameInformation(0L, "TOO_MANY_REQUESTS_FLOW", ""),
+            GameInformation(1L, "INTERNAL_SERVER_ERROR_FLOW", ""),
+            GameInformation(2L, "BAD_GATEWAY_FLOW", ""),
+            GameInformation(3L, "SOCKET_TIME_OUT_FLOW", ""),
+            GameInformation(4L, "BAD_REQUEST_FLOW", ""),
+            GameInformation(100L, "GTA V", "Rockstar"),
+            GameInformation(200L, "Doom Eternal", "Bethesda"),
+            GameInformation(300L, "Battlefield 2042", "EA")
     )
 
     fun getGameInformation(gameTitleId: Long): Optional<GameInformationResponse> {
         val game = games.firstOrNull { it.id == gameTitleId } ?: return Optional.empty()
         val gameRanking = runCatching { getGameRanking(gameTitleId) }
-            .onFailure { logger.error("Exception occurred while fetching game ranking. Exception: ${it.message} - ${it.cause}") }
-            .getOrNull()
+                .onFailure { logger.error("Exception occurred while fetching game ranking. Exception: ${it.message} - ${it.cause}") }
+                .getOrNull()
+        return Optional.of(GameInformationResponse(game.id, game.name, game.publisher, gameRanking))
+    }
+
+    fun getGameInformationSpringRetry(gameTitleId: Long): Optional<GameInformationResponse> {
+        val game = games.firstOrNull { it.id == gameTitleId } ?: return Optional.empty()
+        val gameRanking = runCatching { getGameRankingSpringRetry(gameTitleId) }
+                .onFailure { logger.error("Exception occurred while fetching game ranking. Exception: ${it.message} - ${it.cause}") }
+                .getOrNull()
         return Optional.of(GameInformationResponse(game.id, game.name, game.publisher, gameRanking))
     }
 
@@ -87,11 +111,11 @@ class GameService(private val gameRankingApi: GameRankingApi) {
 
     private fun getGameRankingAsync(gameTitleId: Long): GameRanking? {
         return gameRankingApi.getGameRankAsync(gameTitleId)
-            .onErrorResumeNext { exc: Throwable ->
-                logger.error("Exception occurred while fetching game ranking. Exception: ${exc.message} - ${exc.cause}")
-                Maybe.empty()
-            }
-            .blockingGet()
+                .onErrorResumeNext { exc: Throwable ->
+                    logger.error("Exception occurred while fetching game ranking. Exception: ${exc.message} - ${exc.cause}")
+                    Maybe.empty()
+                }
+                .blockingGet()
     }
 
     private fun getGameRanking(gameTitleId: Long): GameRanking? {
@@ -104,6 +128,23 @@ class GameService(private val gameRankingApi: GameRankingApi) {
         } else {
             logger.error("Error from GameRanking external service - HTTP_CODE=${response.code()} - HTTP_BODY=${response.body()} - HTTP_HEADERS=${response.headers()}")
             null
+        }
+    }
+
+    private fun getGameRankingSpringRetry(gameTitleId: Long): GameRanking? {
+        return retryTemplate.execute<GameRanking, RuntimeException> {
+            try {
+                val uri = UriComponentsBuilder.fromHttpUrl("http://localhost:8080/api/game-ranking/rank/{gameTitleId}")
+                        .buildAndExpand(gameTitleId).encode().toUri()
+                val response = restTemplate.exchange(uri, HttpMethod.GET, null, GameRanking::class.java)
+
+                logger.info("response with status ${response.statusCode} - body ${response.body}")
+                response.body
+            } catch (exc: Exception) {
+                logger.error("FATAL exception occurred ${exc.message}", exc)
+                throw RuntimeException("exception from service", exc)
+            }
+
         }
     }
 }
