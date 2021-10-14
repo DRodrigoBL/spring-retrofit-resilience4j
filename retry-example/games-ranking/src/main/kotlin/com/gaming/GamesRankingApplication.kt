@@ -46,9 +46,15 @@ class GamesRankingController(private val gameRankingService: GameRankingService)
             logger.info("Sleeping for $sleepMillis ms")
             Thread.sleep(sleepMillis)
         }
+
         if (gameTitleId == 4L) {
             logger.info("Response as ${HttpStatus.BAD_REQUEST} for gameTitleId=$gameTitleId")
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build()
+        }
+
+        if (gameTitleId == 5L) {
+            logger.info("Response as ${HttpStatus.REQUEST_TIMEOUT} for gameTitleId=$gameTitleId")
+            return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).build()
         }
 
         val result = gameRankingService.getGameRanking(gameTitleId)

@@ -82,6 +82,7 @@ class GameService(private val gameRankingApi: GameRankingApi,
             GameInformation(2L, "BAD_GATEWAY_FLOW", ""),
             GameInformation(3L, "SOCKET_TIME_OUT_FLOW", ""),
             GameInformation(4L, "BAD_REQUEST_FLOW", ""),
+            GameInformation(5L, "REQUEST_TIMEOUT_FLOW", ""),
             GameInformation(100L, "GTA V", "Rockstar"),
             GameInformation(200L, "Doom Eternal", "Bethesda"),
             GameInformation(300L, "Battlefield 2042", "EA")
