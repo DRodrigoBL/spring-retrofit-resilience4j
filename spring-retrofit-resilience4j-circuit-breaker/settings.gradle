@@ -1,0 +1,3 @@
+rootProject.name = 'spring-retrofit-resilience4j-circuit-breaker'
+
+include("games-ranking", "gaming-titles")
