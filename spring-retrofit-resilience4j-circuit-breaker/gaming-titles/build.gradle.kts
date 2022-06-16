@@ -29,6 +29,7 @@ dependencies {
 
     implementation("io.github.resilience4j:resilience4j-retrofit:1.7.1")
     implementation("io.github.resilience4j:resilience4j-retry:1.7.1")
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker:1.7.1")
 
     implementation("org.springframework.retry:spring-retry:1.2.5.RELEASE")
     implementation("org.springframework:spring-aspects:5.2.3.RELEASE")

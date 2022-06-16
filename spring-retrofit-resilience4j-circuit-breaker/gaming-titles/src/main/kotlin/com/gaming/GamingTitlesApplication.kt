@@ -3,8 +3,10 @@ package com.gaming
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.databind.annotation.JsonNaming
+import io.github.resilience4j.circuitbreaker.CircuitBreaker
 import io.reactivex.Maybe
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.http.HttpMethod
@@ -59,7 +61,9 @@ class GamesRestController(private val service: GameService) {
 }
 
 @Service
-class GameService(private val gameRankingApi: GameRankingApi) {
+class GameService(private val gameRankingApi: GameRankingApi,
+                  @Qualifier("gamingCircuitBreaker")
+                  private val circuitBreaker: CircuitBreaker) {
 
     private val logger by lazy { LoggerFactory.getLogger(GameService::class.java.simpleName) }
 

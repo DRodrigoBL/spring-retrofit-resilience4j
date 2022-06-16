@@ -2,8 +2,11 @@ package com.gaming.config.retrofit
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.gaming.GameRankingApi
+import io.github.resilience4j.circuitbreaker.CircuitBreaker
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
 import io.github.resilience4j.core.IntervalFunction
-import io.github.resilience4j.retrofit.RetryCallAdapter
+import io.github.resilience4j.retrofit.CircuitBreakerCallAdapter
 import io.github.resilience4j.retry.Retry
 import io.github.resilience4j.retry.RetryConfig
 import okhttp3.OkHttpClient
@@ -21,6 +24,7 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.Duration
 import java.util.concurrent.TimeUnit
+
 
 @Configuration
 class RetrofitConfiguration {
