@@ -20,20 +20,6 @@ fun main(args: Array<String>) {
 }
 
 @RestController
-class DummyOrderRouter() {
-
-    private val logger by lazy { LoggerFactory.getLogger(DummyOrderRouter::class.java.simpleName) }
-
-    @GetMapping("/api/order-router/order/detail/{orderId}")
-    fun getOrderDetail(@PathVariable(name = "orderId") orderId: Long): ResponseEntity<String> {
-
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build()
-
-    }
-
-}
-
-@RestController
 @RequestMapping("/api/game-ranking")
 class GamesRankingController(private val gameRankingService: GameRankingService) {
 

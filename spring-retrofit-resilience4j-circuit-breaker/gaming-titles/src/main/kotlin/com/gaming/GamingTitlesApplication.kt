@@ -47,17 +47,6 @@ class GamesRestController(private val service: GameService) {
             ResponseEntity.notFound().build()
         }
     }
-
-    @GetMapping("/async/{gameTitleId}")
-    fun getGameInformationAsync(@PathVariable("gameTitleId") gameTitleId: Long): ResponseEntity<GameInformationResponse> {
-        val response = service.getGameInformationAsync(gameTitleId)
-
-        return if (response.isPresent) {
-            ResponseEntity.ok(response.get())
-        } else {
-            ResponseEntity.notFound().build()
-        }
-    }
 }
 
 @Service
@@ -81,49 +70,43 @@ class GameService(private val gameRankingApi: GameRankingApi,
 
     fun getGameInformation(gameTitleId: Long): Optional<GameInformationResponse> {
         val game = games.firstOrNull { it.id == gameTitleId } ?: return Optional.empty()
-        val gameRanking = runCatching { getGameRanking(gameTitleId) }
-                .onFailure { logger.error("Exception occurred while fetching game ranking. Exception: ${it.message} - ${it.cause}") }
-                .getOrNull()
+        val gameRanking = circuitBreaker.decorateSupplier { getGameRanking(gameTitleId) }
+            .runCatching { get() }
+            .getOrElse { GameRanking(gameTitleId, -1) }
         return Optional.of(GameInformationResponse(game.id, game.name, game.publisher, gameRanking))
     }
 
-    fun getGameInformationAsync(gameTitleId: Long): Optional<GameInformationResponse> {
-        val game = games.firstOrNull { it.id == gameTitleId } ?: return Optional.empty()
-        val gameRanking = getGameRankingAsync(gameTitleId)
-        return Optional.of(GameInformationResponse(game.id, game.name, game.publisher, gameRanking))
-    }
-
-    private fun getGameRankingAsync(gameTitleId: Long): GameRanking? {
-        return gameRankingApi.getGameRankAsync(gameTitleId)
-                .onErrorResumeNext { exc: Throwable ->
-                    logger.error("Exception occurred while fetching game ranking. Exception: ${exc.message} - ${exc.cause}")
-                    Maybe.empty()
-                }
-                .blockingGet()
-    }
-
-    private fun getGameRanking(gameTitleId: Long): GameRanking? {
+    private fun getGameRanking(gameTitleId: Long): GameRanking {
         val response = gameRankingApi.getGameRank(gameTitleId).execute()
-        return if (response.isSuccessful) {
-            response.body()
-        } else if (response.code() == HttpStatus.NOT_FOUND.value()) {
-            logger.warn("GameRanking NOT_FOUND for gameTitleId=$gameTitleId")
-            null
-        } else {
-            logger.error("Error from GameRanking external service - HTTP_CODE=${response.code()} - HTTP_BODY=${response.body()} - HTTP_HEADERS=${response.headers()}")
-            null
+
+        if (!response.isSuccessful){
+            val errorMsg = "Unsuccessful response from games-ranking service http_code=${response.code()} error_body=${response.errorBody().toString()} response_headers=${response.headers()}"
+            logger.error(errorMsg)
+            throw GetGameRankingUnsuccessfulException(errorMsg)
         }
+
+        val receivedBody = response.body()
+
+        if (receivedBody == null){
+            val errorMsg = "Unsuccessful response is NULL from games-ranking response_headers=${response.headers()}"
+            logger.error(errorMsg)
+            throw GetGameRankingNoContentException(errorMsg)
+        }
+
+        return receivedBody
     }
 
 }
+
+class GetGameRankingUnsuccessfulException(override val message: String): RuntimeException(message)
+
+class GetGameRankingNoContentException(override val message: String): RuntimeException(message)
 
 interface GameRankingApi {
 
     @GET("/api/game-ranking/rank/{gameTitleId}")
     fun getGameRank(@Path("gameTitleId") gameTitleId: Long): Call<GameRanking>
 
-    @GET("/api/game-ranking/rank/{gameTitleId}")
-    fun getGameRankAsync(@Path("gameTitleId") gameTitleId: Long): Maybe<GameRanking>
 }
 
 data class GameInformationResponse(val id: Long, val name: String, val publisher: String, val ranking: GameRanking?)
